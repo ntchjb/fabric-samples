@@ -29,7 +29,7 @@ function printHelp() {
   echo "      - 'restart' - restart the network"
   echo
   echo "    Flags:"
-  echo "    -ca <use CAs> -  create Certificate Authorities to generate the crypto material"
+  echo "    -ca <imagetag> -  create Certificate Authorities to generate the crypto material"
   echo "    -c <channel name> - channel name to use (defaults to \"mychannel\")"
   echo "    -s <dbtype> - the database backend to use: goleveldb (default) or couchdb"
   echo "    -r <max retry> - CLI times out after certain number of attempts (defaults to 5)"
@@ -219,7 +219,7 @@ function createOrgs() {
     if [ $? -ne 0 ]; then
       echo "Fabric CA client not found locally, downloading..."
       cd ..
-      curl -s -L "https://github.com/hyperledger/fabric-ca/releases/download/v1.4.4/hyperledger-fabric-ca-${OS_ARCH}-1.4.4.tar.gz" | tar xz || rc=$?
+      curl -s -L "https://github.com/hyperledger/fabric-ca/releases/download/v1.4.6/hyperledger-fabric-ca-${OS_ARCH}-1.4.6.tar.gz" | tar xz || rc=$?
     if [ -n "$rc" ]; then
         echo "==> There was an error downloading the binary file."
         echo "fabric-ca-client binary is not available to download"
@@ -234,7 +234,7 @@ function createOrgs() {
     echo "##### Generate certificates using Fabric CA's ############"
     echo "##########################################################"
 
-    IMAGE_TAG=$IMAGETAG docker-compose -f $COMPOSE_FILE_CA up -d 2>&1
+    IMAGE_TAG=$IMAGETAG_CA docker-compose -f $COMPOSE_FILE_CA up -d 2>&1
 
     . organizations/fabric-ca/registerEnroll.sh
 
@@ -437,6 +437,8 @@ CC_SRC_LANGUAGE=golang
 VERSION=1
 # default image tag
 IMAGETAG="latest"
+# default image tag for CA server
+IMAGETAG_CA="latest"
 # default database
 DATABASE="leveldb"
 
@@ -475,6 +477,8 @@ while [[ $# -ge 1 ]] ; do
     ;;
   -ca )
     CRYPTO="Certificate Authorities"
+    IMAGETAG_CA="$2"
+    shift
     ;;
   -r )
     MAX_RETRY="$2"

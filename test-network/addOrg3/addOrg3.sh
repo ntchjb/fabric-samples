@@ -25,7 +25,7 @@ function printHelp () {
   echo "      - 'down' - bring down the test network and org3 nodes"
   echo "      - 'generate' - generate required certificates and org definition"
   echo "    -c <channel name> - test network channel name (defaults to \"mychannel\")"
-  echo "    -ca <use CA> -  Use a CA to generate the crypto material"
+  echo "    -ca <imagetag> -  Use a CA to generate the crypto material"
   echo "    -t <timeout> - CLI timeout duration in seconds (defaults to 10)"
   echo "    -d <delay> - delay duration in seconds (defaults to 3)"
   echo "    -s <dbtype> - the database backend to use: goleveldb (default) or couchdb"
@@ -87,7 +87,7 @@ function generateOrg3() {
     if [ $? -ne 0 ]; then
       echo "Fabric CA client not found locally, downloading..."
       cd ../..
-      curl -s -L "https://github.com/hyperledger/fabric-ca/releases/download/v1.4.4/hyperledger-fabric-ca-${OS_ARCH}-1.4.4.tar.gz" | tar xz || rc=$?
+      curl -s -L "https://github.com/hyperledger/fabric-ca/releases/download/v1.4.6/hyperledger-fabric-ca-${OS_ARCH}-1.4.6.tar.gz" | tar xz || rc=$?
     if [ -n "$rc" ]; then
         echo "==> There was an error downloading the binary file."
         echo "fabric-ca-client binary is not available to download"
@@ -102,7 +102,7 @@ function generateOrg3() {
     echo "##### Generate certificates using Fabric CA's ############"
     echo "##########################################################"
 
-    IMAGE_TAG=$IMAGETAG docker-compose -f $COMPOSE_FILE_CA_ORG3 up -d 2>&1
+    IMAGE_TAG=$IMAGETAG_CA docker-compose -f $COMPOSE_FILE_CA_ORG3 up -d 2>&1
 
     . fabric-ca/registerEnroll.sh
 
@@ -233,6 +233,8 @@ COMPOSE_FILE_ORG3=docker/docker-compose-org3.yaml
 COMPOSE_FILE_CA_ORG3=docker/docker-compose-ca-org3.yaml
 # default image tag
 IMAGETAG="latest"
+# default image tag for CA server
+IMAGETAG_CA="latest"
 # database
 DATABASE="leveldb"
 
@@ -262,6 +264,8 @@ while [[ $# -ge 1 ]] ; do
     ;;
   -ca )
     CRYPTO="Certificate Authorities"
+    IMAGETAG_CA="$2"
+    shift
     ;;
   -t )
     CLI_TIMEOUT="$2"
