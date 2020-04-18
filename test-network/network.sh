@@ -107,7 +107,7 @@ function checkPrereqs() {
   if [ "$LOCAL_VERSION" != "$DOCKER_IMAGE_VERSION" ]; then
     echo "=================== WARNING ==================="
     echo "  Local fabric binaries and docker images are  "
-    echo "  out of  sync. This may cause problems.       "
+    echo "  out of sync. This may cause problems.       "
     echo "==============================================="
   fi
 
