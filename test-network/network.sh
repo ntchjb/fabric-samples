@@ -37,6 +37,8 @@ function printHelp() {
   echo "    -l <language> - the programming language of the chaincode to deploy: go (default), java, javascript, typescript"
   echo "    -v <version>  - chaincode version. Must be a round number, 1, 2, 3, etc"
   echo "    -i <imagetag> - the tag to be used to launch the network (defaults to \"latest\")"
+  echo "    -n <chaincode name> - the chaincode name used when deploying the chaincode (defaults to \"fabcar\")"
+  echo "    -p <chaincode path> - directory path of the chaincode (defaults to \"../chaincode/fabcar/go\")"
   echo "    -verbose - verbose mode"
   echo "  network.sh -h (print this message)"
   echo
@@ -44,7 +46,7 @@ function printHelp() {
   echo "  network.sh up -ca -c -r -d -s -i -verbose"
   echo "  network.sh up createChannel -ca -c -r -d -s -i -verbose"
   echo "  network.sh createChannel -c -r -d -verbose"
-  echo "  network.sh deployCC -l -v -r -d -verbose"
+  echo "  network.sh deployCC -n -l -v -r -d -verbose"
   echo
   echo " Taking all defaults:"
   echo "	network.sh up"
@@ -52,7 +54,7 @@ function printHelp() {
   echo " Examples:"
   echo "  network.sh up createChannel -ca -c mychannel -s couchdb -i 2.0.0"
   echo "  network.sh createChannel -c channelName"
-  echo "  network.sh deployCC -l javascript"
+  echo "  network.sh deployCC -l javascript -n fabcar"
 }
 
 # Obtain CONTAINER_IDS and remove them
@@ -367,10 +369,10 @@ function createChannel() {
 
 }
 
-## Call the script to isntall and instantiate a chaincode on the channel
+## Call the script to install and instantiate a chaincode on the channel
 function deployCC() {
 
-  scripts/deployCC.sh $CHANNEL_NAME $CC_SRC_LANGUAGE $VERSION $CLI_DELAY $MAX_RETRY $VERBOSE
+  scripts/deployCC.sh $CHANNEL_NAME $CC_NAME $CC_PATH $CC_SRC_LANGUAGE $VERSION $CLI_DELAY $MAX_RETRY $VERBOSE
 
   if [ $? -ne 0 ]; then
     echo "ERROR !!! Deploying chaincode failed"
@@ -404,6 +406,10 @@ function networkDown() {
 
     # remove channel and script artifacts
     rm -rf channel-artifacts log.txt fabcar.tar.gz fabcar
+
+    # remove temporary files in org3 temp folder
+    rm -rf addOrg3/temp
+    mkdir addOrg3/temp
 
   fi
 }
@@ -439,6 +445,10 @@ VERSION=1
 IMAGETAG="latest"
 # default image tag for CA server
 IMAGETAG_CA="latest"
+# default chaincode name
+CC_NAME="fabcar"
+# default chaincode directory path
+CC_PATH="../chaincode/fabcar/go"
 # default database
 DATABASE="leveldb"
 
@@ -504,6 +514,14 @@ while [[ $# -ge 1 ]] ; do
     IMAGETAG="$2"
     shift
     ;;
+  -n )
+    CC_NAME="$2"
+    shift
+    ;;
+  -p )
+    CC_PATH="$2"
+    shift
+    ;;
   -verbose )
     VERBOSE=true
     shift
@@ -542,7 +560,7 @@ elif [ "$MODE" == "restart" ]; then
   echo "Restarting network"
   echo
 elif [ "$MODE" == "deployCC" ]; then
-  echo "deploying chaincode on channel '${CHANNEL_NAME}'"
+  echo "deploying chaincode '${CC_NAME}' on channel '${CHANNEL_NAME}' from path '${CC_PATH}'"
   echo
 else
   printHelp

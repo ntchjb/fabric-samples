@@ -25,8 +25,10 @@ VERBOSE="$4"
 COUNTER=1
 MAX_RETRY=5
 
+export FABRIC_CFG_PATH=$PWD/../../config/
+
 # import environment variables
-. scripts/org3-scripts/envVarCLI.sh
+. ../scripts/org3-scripts/envVar.sh
 
 ## Sometimes Join takes time hence RETRY at least 5 times
 joinChannelWithRetry() {
@@ -34,7 +36,7 @@ joinChannelWithRetry() {
   setGlobals $ORG
 
   set -x
-  peer channel join -b $CHANNEL_NAME.block >&log.txt
+  peer channel join -b temp/$CHANNEL_NAME.block >&log.txt
   res=$?
   set +x
   cat log.txt
@@ -52,7 +54,7 @@ joinChannelWithRetry() {
 
 echo "Fetching channel config block from orderer..."
 set -x
-peer channel fetch 0 $CHANNEL_NAME.block -o orderer.example.com:7050 --ordererTLSHostnameOverride orderer.example.com -c $CHANNEL_NAME --tls --cafile $ORDERER_CA >&log.txt
+peer channel fetch 0 temp/$CHANNEL_NAME.block -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com -c $CHANNEL_NAME --tls --cafile $ORDERER_CA >&log.txt
 res=$?
 set +x
 cat log.txt

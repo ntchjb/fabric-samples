@@ -12,13 +12,22 @@
 # prepending $PWD/../bin to PATH to ensure we are picking up the correct binaries
 # this may be commented out to resolve installed version of tools if desired
 export PATH=${PWD}/../../bin:${PWD}:$PATH
-export FABRIC_CFG_PATH=${PWD}
+export FABRIC_CFG_PATH=$PWD/../../config/
 export VERBOSE=false
+
+export CORE_PEER_ID=Org3cli
+export CORE_PEER_ADDRESS=peer0.org3.example.com:11051
+export CORE_PEER_LOCALMSPID=Org3MSP
+export CORE_PEER_TLS_ENABLED=true
+export CORE_PEER_TLS_CERT_FILE=${PWD}/../organizations/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/server.crt
+export CORE_PEER_TLS_KEY_FILE=${PWD}/../organizations/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/server.key
+export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/../organizations/peerOrganizations/org3.example.com/peers/peer0.org3.example.com/tls/ca.crt
+export CORE_PEER_MSPCONFIGPATH=${PWD}/../organizations/peerOrganizations/org3.example.com/users/Admin@org3.example.com/msp
 
 # Print the usage message
 function printHelp () {
   echo "Usage: "
-  echo "  addOrg3.sh up|down|generate [-c <channel name>] [-t <timeout>] [-d <delay>] [-f <docker-compose-file>] [-s <dbtype>]"
+  echo "  addOrg3.sh up|down|generate|deployCC [-c <channel name>] [-t <timeout>] [-d <delay>] [-f <docker-compose-file>] [-s <dbtype>] [-n <chaincode name>] [-p <chaincode path>]"
   echo "  addOrg3.sh -h|--help (print this message)"
   echo "    <mode> - one of 'up', 'down', or 'generate'"
   echo "      - 'up' - add org3 to the sample network. You need to bring up the test network and create a channel first."
@@ -30,6 +39,10 @@ function printHelp () {
   echo "    -d <delay> - delay duration in seconds (defaults to 3)"
   echo "    -s <dbtype> - the database backend to use: goleveldb (default) or couchdb"
   echo "    -i <imagetag> - the tag to be used to launch the network (defaults to \"latest\")"
+  echo "    -l <language> - the programming language of the chaincode to deploy: go (default), java, javascript, typescript"
+  echo "    -n <chaincode name> - the chaincode name used when deploying the chaincode (defaults to \"fabcar\")"
+  echo "    -v <version>  - chaincode version. Must be a round number, 1, 2, 3, etc"
+  echo "    -p <chaincode path> - directory path of the chaincode (defaults to \"../chaincode/fabcar/go\")"
   echo "    -verbose - verbose mode"
   echo
   echo "Typically, one would first generate the required certificates and "
@@ -39,10 +52,12 @@ function printHelp () {
   echo "	addOrg3.sh up"
   echo "	addOrg3.sh up -c mychannel -s couchdb"
   echo "	addOrg3.sh down"
+  echo "  addOrg3.sh deployCC -n mycc -p ../chaincode/goproject/cmd/main -l golang -v 1"
   echo
   echo "Taking all defaults:"
   echo "	addOrg3.sh up"
   echo "	addOrg3.sh down"
+  echo "	addOrg3.sh deployCC"
 }
 
 # We use the cryptogen tool to generate the cryptographic material
@@ -156,8 +171,25 @@ function Org3Up () {
   fi
 }
 
+## Call the script to install and instantiate a chaincode on the channel
+function deployCC () {
+
+  ../scripts/org3-scripts/deployCC.sh $CHANNEL_NAME $CC_NAME $CC_PATH $CC_SRC_LANGUAGE $VERSION $CLI_DELAY $MAX_RETRY $VERBOSE
+
+  if [ $? -ne 0 ]; then
+    echo "ERROR !!! Deploying chaincode failed"
+    exit 1
+  fi
+
+  exit 0
+}
+
 # Generate the needed certificates, the genesis block and start the network.
 function addOrg3 () {
+
+  if [! -d temp ]; then
+    mkdir addOrg3/temp
+  fi
 
   # If the test network is not up, abort
   if [ ! -d ../organizations/ordererOrganizations ]; then
@@ -185,7 +217,7 @@ function addOrg3 () {
   echo "###############################################################"
   echo "####### Generate and submit config tx to add Org3 #############"
   echo "###############################################################"
-  docker exec Org3cli ./scripts/org3-scripts/step1org3.sh $CHANNEL_NAME $CLI_DELAY $CLI_TIMEOUT $VERBOSE
+  ../scripts/org3-scripts/step1org3.sh $CHANNEL_NAME $CLI_DELAY $CLI_TIMEOUT $VERBOSE
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to create config tx"
     exit 1
@@ -195,7 +227,7 @@ function addOrg3 () {
   echo "###############################################################"
   echo "############### Have Org3 peers join network ##################"
   echo "###############################################################"
-  docker exec Org3cli ./scripts/org3-scripts/step2org3.sh $CHANNEL_NAME $CLI_DELAY $CLI_TIMEOUT $VERBOSE
+  ../scripts/org3-scripts/step2org3.sh $CHANNEL_NAME $CLI_DELAY $CLI_TIMEOUT $VERBOSE
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to have Org3 peers join network"
     exit 1
@@ -216,7 +248,7 @@ function networkDown () {
 OS_ARCH=$(echo "$(uname -s|tr '[:upper:]' '[:lower:]'|sed 's/mingw64_nt.*/windows/')-$(uname -m | sed 's/x86_64/amd64/g')" | awk '{print tolower($0)}')
 # timeout duration - the duration the CLI should wait for a response from
 # another container before giving up
-
+MAX_RETRY=5
 # Using crpto vs CA. default is cryptogen
 CRYPTO="cryptogen"
 
@@ -235,6 +267,14 @@ COMPOSE_FILE_CA_ORG3=docker/docker-compose-ca-org3.yaml
 IMAGETAG="latest"
 # default image tag for CA server
 IMAGETAG_CA="latest"
+# default chaincode name
+CC_NAME="fabcar"
+# default chaincode directory path
+CC_PATH="../chaincode/fabcar/go"
+# use golang as the default language for chaincode
+CC_SRC_LANGUAGE=golang
+# Chaincode version
+VERSION=1
 # database
 DATABASE="leveldb"
 
@@ -283,6 +323,22 @@ while [[ $# -ge 1 ]] ; do
     IMAGETAG=$(go env GOARCH)"-""$2"
     shift
     ;;
+  -l )
+    CC_SRC_LANGUAGE="$2"
+    shift
+    ;;
+  -v )
+    VERSION="$2"
+    shift
+    ;;
+  -n )
+    CC_NAME="$2"
+    shift
+    ;;
+  -p )
+    CC_PATH="$2"
+    shift
+    ;;
   -verbose )
     VERBOSE=true
     shift
@@ -307,6 +363,8 @@ elif [ "$MODE" == "down" ]; then
   EXPMODE="Stopping network"
 elif [ "$MODE" == "generate" ]; then
   EXPMODE="Generating certs and organization definition for Org3"
+elif [ "$MODE" == "deployCC" ]; then
+  EXPMODE="deploying chaincode '${CC_NAME}' on channel '${CHANNEL_NAME}' from path '${CC_PATH}'"
 else
   printHelp
   exit 1
@@ -320,6 +378,8 @@ elif [ "${MODE}" == "down" ]; then ## Clear the network
 elif [ "${MODE}" == "generate" ]; then ## Generate Artifacts
   generateOrg3
   generateOrg3Definition
+elif [ "${MODE}" == "deployCC" ]; then
+  deployCC
 else
   printHelp
   exit 1

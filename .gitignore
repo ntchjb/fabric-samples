@@ -14,3 +14,5 @@ vendor/
 .vscode
 .gradle
 .idea
+# omit org3's temp folder
+/test-network/addOrg3/temp

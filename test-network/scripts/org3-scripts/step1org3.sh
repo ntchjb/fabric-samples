@@ -21,9 +21,10 @@ VERBOSE="$4"
 COUNTER=1
 MAX_RETRY=5
 
+export FABRIC_CFG_PATH=$PWD/../../config/
 
 # import environment variables
-. scripts/org3-scripts/envVarCLI.sh
+. ../scripts/org3-scripts/envVar.sh
 
 
 # fetchChannelConfig <channel_id> <output_json>
@@ -39,12 +40,13 @@ fetchChannelConfig() {
 
   echo "Fetching the most recent configuration block for the channel"
   set -x
-  peer channel fetch config config_block.pb -o orderer.example.com:7050 --ordererTLSHostnameOverride orderer.example.com -c $CHANNEL --tls --cafile $ORDERER_CA
+  peer channel fetch config temp/config_block.pb -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com -c $CHANNEL --tls --cafile $ORDERER_CA
   set +x
 
   echo "Decoding config block to JSON and isolating config to ${OUTPUT}"
   set -x
-  configtxlator proto_decode --input config_block.pb --type common.Block | jq .data.data[0].payload.data.config >"${OUTPUT}"
+  configtxlator proto_decode --input temp/config_block.pb --type common.Block --output temp/config_block.json
+  cat temp/config_block.json | jq .data.data[0].payload.data.config > "${OUTPUT}"
   set +x
 }
 
@@ -58,12 +60,12 @@ createConfigUpdate() {
   OUTPUT=$4
 
   set -x
-  configtxlator proto_encode --input "${ORIGINAL}" --type common.Config >original_config.pb
-  configtxlator proto_encode --input "${MODIFIED}" --type common.Config >modified_config.pb
-  configtxlator compute_update --channel_id "${CHANNEL}" --original original_config.pb --updated modified_config.pb >config_update.pb
-  configtxlator proto_decode --input config_update.pb --type common.ConfigUpdate >config_update.json
-  echo '{"payload":{"header":{"channel_header":{"channel_id":"'$CHANNEL'", "type":2}},"data":{"config_update":'$(cat config_update.json)'}}}' | jq . >config_update_in_envelope.json
-  configtxlator proto_encode --input config_update_in_envelope.json --type common.Envelope >"${OUTPUT}"
+  configtxlator proto_encode --input "${ORIGINAL}" --type common.Config --output temp/original_config.pb
+  configtxlator proto_encode --input "${MODIFIED}" --type common.Config --output temp/modified_config.pb
+  configtxlator compute_update --channel_id "${CHANNEL}" --original temp/original_config.pb --updated temp/modified_config.pb --output temp/config_update.pb
+  configtxlator proto_decode --input temp/config_update.pb --type common.ConfigUpdate --output temp/config_update.json
+  echo '{"payload":{"header":{"channel_header":{"channel_id":"'$CHANNEL'", "type":2}},"data":{"config_update":'$(cat temp/config_update.json)'}}}' | jq . > temp/config_update_in_envelope.json
+  configtxlator proto_encode --input temp/config_update_in_envelope.json --type common.Envelope --output "${OUTPUT}"
   set +x
 }
 
@@ -83,15 +85,15 @@ echo "========= Creating config transaction to add org3 to network =========== "
 echo
 
 # Fetch the config for the channel, writing it to config.json
-fetchChannelConfig 1 ${CHANNEL_NAME} config.json
+fetchChannelConfig 1 ${CHANNEL_NAME} temp/config.json
 
 # Modify the configuration to append the new org
 set -x
-jq -s '.[0] * {"channel_group":{"groups":{"Application":{"groups": {"Org3MSP":.[1]}}}}}' config.json ./organizations/peerOrganizations/org3.example.com/org3.json > modified_config.json
+jq -s '.[0] * {"channel_group":{"groups":{"Application":{"groups": {"Org3MSP":.[1]}}}}}' temp/config.json ../organizations/peerOrganizations/org3.example.com/org3.json > temp/modified_config.json
 set +x
 
 # Compute a config update, based on the differences between config.json and modified_config.json, write it as a transaction to org3_update_in_envelope.pb
-createConfigUpdate ${CHANNEL_NAME} config.json modified_config.json org3_update_in_envelope.pb
+createConfigUpdate ${CHANNEL_NAME} temp/config.json temp/modified_config.json temp/org3_update_in_envelope.pb
 
 echo
 echo "========= Config transaction to add org3 to network created ===== "
@@ -99,14 +101,14 @@ echo
 
 echo "Signing config transaction"
 echo
-signConfigtxAsPeerOrg 1 org3_update_in_envelope.pb
+signConfigtxAsPeerOrg 1 temp/org3_update_in_envelope.pb
 
 echo
 echo "========= Submitting transaction from a different peer (peer0.org2) which also signs it ========= "
 echo
 setGlobals 2
 set -x
-peer channel update -f org3_update_in_envelope.pb -c ${CHANNEL_NAME} -o orderer.example.com:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile ${ORDERER_CA}
+peer channel update -f temp/org3_update_in_envelope.pb -c ${CHANNEL_NAME} -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile ${ORDERER_CA}
 set +x
 
 echo
