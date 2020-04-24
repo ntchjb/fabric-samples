@@ -120,6 +120,7 @@ function generateOrg3() {
     IMAGE_TAG=$IMAGETAG_CA docker-compose -f $COMPOSE_FILE_CA_ORG3 up -d 2>&1
 
     . fabric-ca/registerEnroll.sh
+    . fabric-ca/customRegisterEnroll.sh
 
     sleep 10
 

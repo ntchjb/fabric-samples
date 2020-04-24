@@ -239,6 +239,7 @@ function createOrgs() {
     IMAGE_TAG=$IMAGETAG_CA docker-compose -f $COMPOSE_FILE_CA up -d 2>&1
 
     . organizations/fabric-ca/registerEnroll.sh
+    . organizations/fabric-ca/customRegisterEnroll.sh
 
     sleep 10
 
