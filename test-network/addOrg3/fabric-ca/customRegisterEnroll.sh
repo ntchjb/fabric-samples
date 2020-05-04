@@ -6,7 +6,7 @@ fabric-ca-client identity add consumer --caname ca-org3 --tls.certfiles ${PWD}/f
   "attrs": [
     {
       "name": "name",
-      "value": "User Org3name",
+      "value": "Rosa Lawson",
       "ecert": true
     }, {
       "name": "role",
@@ -19,7 +19,7 @@ fabric-ca-client identity add consumer --caname ca-org3 --tls.certfiles ${PWD}/f
       "ecert": true
     },{
       "name": "url",
-      "value": "https://example.com/hr/01234",
+      "value": "https://example.com/hr/01234/profile",
       "ecert": true
     },
     {
